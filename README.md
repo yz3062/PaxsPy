@@ -23,7 +23,7 @@ Click "Clone or download" on top right -> "Download ZIP". Unzip all files.
 
 Open Command Prompt in Windows or Terminal in MacOS, change to the directory where ThxsPy.py exsits, and type
 ```
-python ThxsPy.py
+python PaxsPy.py
 ```
 When prompted to find input files, select all the files in the "Data" folder.
 
