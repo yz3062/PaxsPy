@@ -8,13 +8,23 @@ import numpy as np
 from scipy import stats # for linear regression
 from Tkinter import Tk
 from tkFileDialog import askopenfilenames, asksaveasfilename
+import tkMessageBox
 import sys
 import pandas as pd
 import ctypes
+import platform
 
-spike_answer = ctypes.windll.user32.MessageBoxA(0, "Are you using 2006-2 UTh spike and 2017-2b Pa spike? If not, click no and search \'MixedPa' in script and change its values", "Spike?", 4)
-if spike_answer == 7:
-    sys.exit()
+n_samples = 20
+
+# check OS
+if platform.system() == 'Windows':
+    spike_answer = ctypes.windll.user32.MessageBoxA(0, "Are you using 2006-2 UTh spike and 2018-1a Pa spike? If not, click no and search \'MixedPa' in script and change its values", "Spike?", 4)
+    if spike_answer == 7:
+        sys.exit()
+elif platform.system() == 'Darwin':
+    window = Tk()
+    window.wm_withdraw()
+    tkMessageBox.showinfo(title="Spike?", message="Are you using 2006-2 UTh spike and 2018-1a Pa spike? If not, click no and search \'MixedPa' in script and change its values")
 
 Tk().withdraw() # we don't want a full GUI, so keep the root window from appearing
 file_names = askopenfilenames(title="Select all the ICPMS output files and a \'sample_info' excel file") # show an "Open" dialog box and return the path to the selected file
@@ -24,9 +34,28 @@ def return_five_point_avg(file_name):
     txt_handle = np.genfromtxt(file_name, delimiter='\t', skip_header=12)
     # get rid of first column (mass) and last column (nan)
     txt_handle = txt_handle[:,1:-1]
+    #### test
+    outliers, outlier_indices = rejected_outliers(txt_handle)
+    if outliers.size!=0:
+        print file_name
+        print outlier_indices
+        
     # average accros five points
     return np.mean(txt_handle.reshape(len(txt_handle)/5, 5, -1),axis=1)
+
+def reject_outliers(data, m = 3.):
+    # from https://stackoverflow.com/questions/11686720/is-there-a-numpy-builtin-to-reject-outliers-from-a-list
+    d = np.abs(data - np.median(data, axis=1)[:,None])
+    mdev = np.median(d,axis=1)
+    s = d/mdev[:,None] if mdev!=0 else 0.
+    return data[np.less(s,m)]
     
+def rejected_outliers(data, m = 10.):
+    # from https://stackoverflow.com/questions/11686720/is-there-a-numpy-builtin-to-reject-outliers-from-a-list
+    d = np.abs(data - np.median(data, axis=1)[:,None])
+    mdev = np.median(d,axis=1)
+    s = d/mdev[:,None]# if mdev!=0 else 0.
+    return (data[np.greater(s,m)], np.where(np.greater(s,m)))
 
 #%% process blanks and stds. Calculate tailcrxn slope and intercept
 names = [name for name in file_names if 'Blank' in name or 'blank' in name or
@@ -116,7 +145,7 @@ for file_name in names:
 # set up the 2d array as in master spreadsheet
 # Columns: 238/236_avg	238/236_RSD	235/236_avg	235/236_RSD	234/236_avg	234/236_RSD	230/229_avg	230/229_stdev	232/229_avg	232/229_stdev
 # Rows: UTh1-20
-master = np.zeros((20,2))
+master = np.zeros((n_samples,2))
 
 # if this is UTh data file
 names = [name for name in file_names if 'Pa.txt' in name]
@@ -134,6 +163,9 @@ for i, file_name in enumerate(names):
     two_hundred_run_231233_std = np.std(five_point_avg[0
                                                    ,:]/five_point_avg[2,:])/np.sqrt(200)
     master[i,1] = two_hundred_run_231233_std/master[i,0]
+if n_samples == 21:
+    newmixPa231_233 = master[-1,0]
+    master = np.delete(master, -1, 0)
     
 #%% ez reduction
     
@@ -172,14 +204,14 @@ mass_bias_per_amu_RSD = np.sqrt((SRM_RSD**2+accepted_238235_RSD**2))
 avg_233Pa_231Pa = np.mean(MixPa_233231_avg)
 avg_233Pa_231Pa_RSD = np.sqrt(np.sum((np.array(MixPa_233231_avg) * np.array(MixPa_233231_RSD))**2))/3/avg_233Pa_231Pa
 Pa231_cncn_pg_g = 38
-Pa231_soln_mass_in_spike_g = 0.3177
-Pa233_soln_mass_in_spike_g = 12.8456
+Pa231_soln_mass_in_spike_g = 0.2641
+Pa233_soln_mass_in_spike_g = 10.3717
 Pa233_mass_in_spike_pg_g = avg_233Pa_231Pa*Pa231_cncn_pg_g*Pa231_soln_mass_in_spike_g/Pa233_soln_mass_in_spike_g
 decay_days = int(input('Enter the number of days from Pa233 spike preparation to Pa clean up column: '))
 
-# write avg_233Pa_231Pa to txt file for Marty
-with open("avg_233_231Pa.txt", "w") as text_file:
-    text_file.write("Purchase Amount: {}".format(avg_233Pa_231Pa))
+## write avg_233Pa_231Pa to txt file for Marty
+#with open("avg_233_231Pa.txt", "w") as text_file:
+#    text_file.write("Purchase Amount: {}".format(avg_233Pa_231Pa))
 #%%
 ##UnSpike
 Pa231_Pa233_mass_bias_crtd = (1+(-2*mass_bias_per_amu))*master[:,0]
@@ -222,7 +254,7 @@ if sample_info_type == 'txt':
     sample_name_df = pd.DataFrame({'Sample name':sample_info['f0']})
 elif sample_info_type == 'xlsx':
     sample_name_df = pd.DataFrame({'Sample name':sample_info[0]})
-avg_233Pa_231Pa_df = pd.DataFrame({'avg_233Pa_231Pa for Marty':[decay_days,avg_233Pa_231Pa]},index=[0,1])
+avg_233Pa_231Pa_df = pd.DataFrame({'avg_233Pa_231Pa for Marty':[decay_days,avg_233Pa_231Pa,newmixPa231_233]},index=[0,1,2])
 export_df = pd.concat([sample_name_df,export_data_df,avg_233Pa_231Pa_df],axis=1)
 #%% save to csv
 output_file_name = asksaveasfilename(title='Save the output file as')
