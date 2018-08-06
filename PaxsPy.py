@@ -15,8 +15,6 @@ import pandas as pd
 import ctypes
 import platform
 
-n_samples = 20
-
 # check OS
 if platform.system() == 'Windows':
     spike_answer = ctypes.windll.user32.MessageBoxA(0, "Are you using 2006-2 UTh spike and 2018-1a Pa spike? If not, click no and search \'MixedPa' in script and change its values", "Spike?", 4)
@@ -36,12 +34,13 @@ def return_five_point_avg(file_name):
     # get rid of first column (mass) and last column (nan)
     txt_handle = txt_handle[:,1:-1]
     # If not blank, check and remove outliers
-    if 'Blank' not in file_name or 'blank' not in file_name:
+    if 'Blank' not in file_name and 'blank' not in file_name:
         txt_handle = reject_outliers(txt_handle)
     # average accros five points
     five_point_avg = ma.mean(txt_handle.reshape(len(txt_handle)/5, 5, -1),axis=1)
     # A second check for outliers after the five point average, except when the file is Blank
-    if 'Blank' not in file_name or 'blank' not in file_name:
+    if 'Blank' not in file_name and 'blank' not in file_name:
+        print file_name + " # outliers: " + str(ma.count_masked(five_point_avg))
         return reject_outliers(five_point_avg)
     else:
         return five_point_avg
@@ -140,15 +139,34 @@ for file_name in names:
     MixPa_233231_std.append(two_hundred_run_233231_std)
     two_hundred_run_233231_RSD = two_hundred_run_233231_std/two_hundred_run_233231_avg
     MixPa_233231_RSD.append(two_hundred_run_233231_RSD)
+    
+#%% MixPa
+names = [name for name in file_names if 'nochem_mixPa' in name]
+
+if len(names) >1:
+    raise RuntimeError('Multiple nochem_mixPa!')
+
+file_name = names[0]
+five_point_avg = return_five_point_avg(file_name)
+
+# tail correction
+five_point_avg[0,:] -= slopes_tailCrxn[0] * five_point_avg[1,:] + intercepts_tailCrxn[0]
+five_point_avg[2,:] -= slopes_tailCrxn[1] * five_point_avg[1,:] + intercepts_tailCrxn[1]
+
+nochem_mixPa_233231_avg = np.mean(five_point_avg[2
+                                                ,:]/five_point_avg[0,:])
+nochem_mixPa_233231_std = np.std(five_point_avg[2
+                                               ,:]/five_point_avg[0,:])/np.sqrt(200)
+nochem_mixPa_233231_RSD = two_hundred_run_233231_std/two_hundred_run_233231_avg
 
 #%% sample results
 # set up the 2d array as in master spreadsheet
 # Columns: 238/236_avg	238/236_RSD	235/236_avg	235/236_RSD	234/236_avg	234/236_RSD	230/229_avg	230/229_stdev	232/229_avg	232/229_stdev
 # Rows: UTh1-20
-master = np.zeros((n_samples,2))
+master = np.zeros((20,2))
 
 # if this is UTh data file
-names = [name for name in file_names if 'Pa.txt' in name]
+names = [name for name in file_names if '_Pa.txt' in name]
 if not names:
     raise RuntimeError('No Pa files found!')
 names.sort()
@@ -163,9 +181,9 @@ for i, file_name in enumerate(names):
     two_hundred_run_231233_std = np.std(five_point_avg[0
                                                    ,:]/five_point_avg[2,:])/np.sqrt(200)
     master[i,1] = two_hundred_run_231233_std/master[i,0]
-if n_samples == 21:
-    newmixPa231_233 = master[-1,0]
-    master = np.delete(master, -1, 0)
+#if n_samples == 21:
+#    newmixPa231_233 = master[-1,0]
+#    master = np.delete(master, -1, 0)
     
 #%% ez reduction
     
@@ -254,8 +272,10 @@ if sample_info_type == 'txt':
     sample_name_df = pd.DataFrame({'Sample name':sample_info['f0']})
 elif sample_info_type == 'xlsx':
     sample_name_df = pd.DataFrame({'Sample name':sample_info[0]})
-avg_233Pa_231Pa_df = pd.DataFrame({'avg_233Pa_231Pa for Marty':[decay_days,avg_233Pa_231Pa,newmixPa231_233]},index=[0,1,2])
+avg_233Pa_231Pa_df = pd.DataFrame({'avg_233Pa_231Pa for Marty':[decay_days,avg_233Pa_231Pa,nochem_mixPa_233231_avg]},index=[0,1,2])
 export_df = pd.concat([sample_name_df,export_data_df,avg_233Pa_231Pa_df],axis=1)
 #%% save to csv
 output_file_name = asksaveasfilename(title='Save the output file as')
+if 'xlsx' not in output_file_name:
+    output_file_name = output_file_name + '.xlsx'
 export_df.to_excel(output_file_name)
