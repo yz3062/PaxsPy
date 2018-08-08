@@ -109,7 +109,7 @@ for file_name in names:
                                                     ,:]/five_point_avg[1,:])
     SRM_238235_avg.append(two_hundred_run_238235_avg)
     two_hundred_run_238235_std = np.std(five_point_avg[2
-                                                   ,:]/five_point_avg[1,:])/np.sqrt(200)
+                                                   ,:]/five_point_avg[1,:])/np.sqrt(five_point_avg.shape[1])
     SRM_238235_std.append(two_hundred_run_238235_std)
     two_hundred_run_238235_RSD = two_hundred_run_238235_std/two_hundred_run_238235_avg
     SRM_238235_RSD.append(two_hundred_run_238235_RSD)
@@ -135,7 +135,7 @@ for file_name in names:
                                                     ,:]/five_point_avg[0,:])
     MixPa_233231_avg.append(two_hundred_run_233231_avg)
     two_hundred_run_233231_std = np.std(five_point_avg[2
-                                                   ,:]/five_point_avg[0,:])/np.sqrt(200)
+                                                   ,:]/five_point_avg[0,:])/np.sqrt(five_point_avg.shape[1])
     MixPa_233231_std.append(two_hundred_run_233231_std)
     two_hundred_run_233231_RSD = two_hundred_run_233231_std/two_hundred_run_233231_avg
     MixPa_233231_RSD.append(two_hundred_run_233231_RSD)
@@ -156,20 +156,23 @@ five_point_avg[2,:] -= slopes_tailCrxn[1] * five_point_avg[1,:] + intercepts_tai
 nochem_mixPa_233231_avg = np.mean(five_point_avg[2
                                                 ,:]/five_point_avg[0,:])
 nochem_mixPa_233231_std = np.std(five_point_avg[2
-                                               ,:]/five_point_avg[0,:])/np.sqrt(200)
+                                               ,:]/five_point_avg[0,:])/np.sqrt(five_point_avg.shape[1])
 nochem_mixPa_233231_RSD = two_hundred_run_233231_std/two_hundred_run_233231_avg
 
 #%% sample results
-# set up the 2d array as in master spreadsheet
-# Columns: 238/236_avg	238/236_RSD	235/236_avg	235/236_RSD	234/236_avg	234/236_RSD	230/229_avg	230/229_stdev	232/229_avg	232/229_stdev
-# Rows: UTh1-20
-master = np.zeros((20,2))
 
 # if this is UTh data file
 names = [name for name in file_names if '_Pa.txt' in name]
 if not names:
     raise RuntimeError('No Pa files found!')
 names.sort()
+
+# set up the 2d array as in master spreadsheet
+# Columns: 231/233_avg	231/233_RSD
+# Rows: Pa1-num_samples
+num_samples = len(names)
+master = np.zeros((num_samples,2))
+
 for i, file_name in enumerate(names):
     five_point_avg = return_five_point_avg(file_name)
     
@@ -179,7 +182,7 @@ for i, file_name in enumerate(names):
     
     master[i,0] = np.mean(five_point_avg[0,:]/five_point_avg[2,:])
     two_hundred_run_231233_std = np.std(five_point_avg[0
-                                                   ,:]/five_point_avg[2,:])/np.sqrt(200)
+                                                   ,:]/five_point_avg[2,:])/np.sqrt(five_point_avg.shape[1])
     master[i,1] = two_hundred_run_231233_std/master[i,0]
 #if n_samples == 21:
 #    newmixPa231_233 = master[-1,0]
@@ -262,12 +265,12 @@ elif sample_info_type == 'xlsx':
     sed_mass_g = sample_info[2] / 1000
 Pa231_dpm_g = Pa231_dpm / sed_mass_g
 Pa231_dpm_g_2_sigma = Pa231_dpm_g * Pa231_pg_RSD * 2
-export = np.zeros((20,2))
+export = np.zeros((num_samples,2))
 export[:,0] = Pa231_dpm_g
 export[:,1] = Pa231_dpm_g_2_sigma
 
 # since numpy array can't have both string and float, converting to pandas dataframe and add sample name as the first column in export
-export_data_df = pd.DataFrame(data=export,index=np.arange(20),columns=['231Pa dpm/g','231 Pa (dpm/g) 2 sigma'])
+export_data_df = pd.DataFrame(data=export,index=np.arange(num_samples),columns=['231Pa dpm/g','231 Pa (dpm/g) 2 sigma'])
 if sample_info_type == 'txt':
     sample_name_df = pd.DataFrame({'Sample name':sample_info['f0']})
 elif sample_info_type == 'xlsx':
