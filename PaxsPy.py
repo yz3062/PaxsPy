@@ -58,7 +58,7 @@ def return_five_point_avg(file_name):
     else:
         return five_point_avg
 
-def reject_outliers(data, m = 3.):
+def reject_outliers(data, m = 2.):
     # from https://stackoverflow.com/questions/11686720/is-there-a-numpy-builtin-to-reject-outliers-from-a-list
 #    # median approach
 #    d = np.abs(data - np.median(data, axis=1)[:,None])
