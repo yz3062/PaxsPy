@@ -9,28 +9,41 @@ import numpy.ma as ma
 from scipy import stats # for linear regression
 from Tkinter import Tk
 from tkFileDialog import askopenfilenames, asksaveasfilename
-import tkMessageBox
 import sys
 import pandas as pd
-import ctypes
-import platform
 
-# check OS
-if platform.system() == 'Windows':
-    spike_answer = ctypes.windll.user32.MessageBoxA(0, "Are you using 2006-2 UTh spike and 2018-1a Pa spike? If not, click no and search \'MixedPa' in script and change its values", "Spike?", 4)
-    if spike_answer == 7:
-        sys.exit()
-elif platform.system() == 'Darwin':
-    window = Tk()
-    window.wm_withdraw()
-    tkMessageBox.showinfo(title="Spike?", message="Are you using 2006-2 UTh spike and 2018-1a Pa spike? If not, click no and search \'MixedPa' in script and change its values")
+spike_answer = str(raw_input("Are you using 2006-2 UTh spike and 2017-1a Pa spike? If not, click no and search \'MixedPa' in script and change its values. [y] or n:") or 'y')
+if spike_answer == 'n':
+    sys.exit()
+figure_answer = str(raw_input("Do you want to inspect ICPMS raw output in figures?[y] or n:") or 'y')
+
+## check OS
+#if platform.system() == 'Windows':
+#    spike_answer = ctypes.windll.user32.MessageBoxA(0, "Are you using 2006-2 UTh spike and 2017-1a Pa spike? If not, click no and search \'MixedPa' in script and change its values", "Spike?", 4)
+#    if spike_answer == 7:
+#        sys.exit()
+#elif platform.system() == 'Darwin':
+#    window = Tk()
+#    window.wm_withdraw()
+#    tkMessageBox.showinfo(title="Spike?", message="Are you using 2006-2 UTh spike and 2017-1a Pa spike? If not, click no and search \'MixedPa' in script and change its values")
 
 Tk().withdraw() # we don't want a full GUI, so keep the root window from appearing
 file_names = askopenfilenames(title="Select all the ICPMS output files and a \'sample_info' excel file") # show an "Open" dialog box and return the path to the selected file
 
 def return_five_point_avg(file_name):
     # start reading from row 12, which are name/unit/blank
-    txt_handle = np.genfromtxt(file_name, delimiter='\t', skip_header=12)
+#    txt_handle = np.genfromtxt(file_name, delimiter='\t', skip_header=12)
+    txt_handle = np.genfromtxt(file_name, delimiter='\t')
+    if np.all(np.isnan(txt_handle[0])):# if first line is empty
+        txt_handle = txt_handle[12:]
+    else:
+        txt_handle = txt_handle[7:]
+    if figure_answer == 'y':
+        txt_handle_r = np.transpose(txt_handle)
+        data_df = pd.DataFrame(data=txt_handle_r[1:-1,:])
+        data_df.plot(sharex=True,title=file_name)
+        plt.ion()
+        plt.show()
     # get rid of first column (mass) and last column (nan)
     txt_handle = txt_handle[:,1:-1]
     # If not blank, check and remove outliers
@@ -126,7 +139,7 @@ MixPa_233231_RSD = []
 
 for file_name in names:
     five_point_avg = return_five_point_avg(file_name)
-    
+
     # tail correction
     five_point_avg[0,:] -= slopes_tailCrxn[0] * five_point_avg[1,:] + intercepts_tailCrxn[0]
     five_point_avg[2,:] -= slopes_tailCrxn[1] * five_point_avg[1,:] + intercepts_tailCrxn[1]
@@ -145,19 +158,24 @@ names = [name for name in file_names if 'nochem_mixPa' in name]
 
 if len(names) >1:
     raise RuntimeError('Multiple nochem_mixPa!')
-
-file_name = names[0]
-five_point_avg = return_five_point_avg(file_name)
-
-# tail correction
-five_point_avg[0,:] -= slopes_tailCrxn[0] * five_point_avg[1,:] + intercepts_tailCrxn[0]
-five_point_avg[2,:] -= slopes_tailCrxn[1] * five_point_avg[1,:] + intercepts_tailCrxn[1]
-
-nochem_mixPa_233231_avg = np.mean(five_point_avg[2
-                                                ,:]/five_point_avg[0,:])
-nochem_mixPa_233231_std = np.std(five_point_avg[2
-                                               ,:]/five_point_avg[0,:])/np.sqrt(five_point_avg.shape[1])
-nochem_mixPa_233231_RSD = two_hundred_run_233231_std/two_hundred_run_233231_avg
+if not names:
+    nochem_mixPa_flag = False
+else:
+    nochem_mixPa_flag = True
+    
+if nochem_mixPa_flag:
+    file_name = names[0]
+    five_point_avg = return_five_point_avg(file_name)
+    
+    # tail correction
+    five_point_avg[0,:] -= slopes_tailCrxn[0] * five_point_avg[1,:] + intercepts_tailCrxn[0]
+    five_point_avg[2,:] -= slopes_tailCrxn[1] * five_point_avg[1,:] + intercepts_tailCrxn[1]
+    
+    nochem_mixPa_233231_avg = np.mean(five_point_avg[2
+                                                    ,:]/five_point_avg[0,:])
+    nochem_mixPa_233231_std = np.std(five_point_avg[2
+                                                   ,:]/five_point_avg[0,:])/np.sqrt(five_point_avg.shape[1])
+    nochem_mixPa_233231_RSD = two_hundred_run_233231_std/two_hundred_run_233231_avg
 
 #%% sample results
 
@@ -184,9 +202,6 @@ for i, file_name in enumerate(names):
     two_hundred_run_231233_std = np.std(five_point_avg[0
                                                    ,:]/five_point_avg[2,:])/np.sqrt(five_point_avg.shape[1])
     master[i,1] = two_hundred_run_231233_std/master[i,0]
-#if n_samples == 21:
-#    newmixPa231_233 = master[-1,0]
-#    master = np.delete(master, -1, 0)
     
 #%% ez reduction
     
@@ -225,8 +240,8 @@ mass_bias_per_amu_RSD = np.sqrt((SRM_RSD**2+accepted_238235_RSD**2))
 avg_233Pa_231Pa = np.mean(MixPa_233231_avg)
 avg_233Pa_231Pa_RSD = np.sqrt(np.sum((np.array(MixPa_233231_avg) * np.array(MixPa_233231_RSD))**2))/3/avg_233Pa_231Pa
 Pa231_cncn_pg_g = 38
-Pa231_soln_mass_in_spike_g = 0.2641
-Pa233_soln_mass_in_spike_g = 10.3717
+Pa231_soln_mass_in_spike_g = 0.2088
+Pa233_soln_mass_in_spike_g = 5.3203
 Pa233_mass_in_spike_pg_g = avg_233Pa_231Pa*Pa231_cncn_pg_g*Pa231_soln_mass_in_spike_g/Pa233_soln_mass_in_spike_g
 decay_days = int(input('Enter the number of days from Pa233 spike preparation to Pa clean up column: '))
 
@@ -275,7 +290,10 @@ if sample_info_type == 'txt':
     sample_name_df = pd.DataFrame({'Sample name':sample_info['f0']})
 elif sample_info_type == 'xlsx':
     sample_name_df = pd.DataFrame({'Sample name':sample_info[0]})
-avg_233Pa_231Pa_df = pd.DataFrame({'avg_233Pa_231Pa for Marty':[decay_days,avg_233Pa_231Pa,nochem_mixPa_233231_avg]},index=[0,1,2])
+if nochem_mixPa_flag:
+    avg_233Pa_231Pa_df = pd.DataFrame({'avg_233Pa_231Pa for Marty':[decay_days,avg_233Pa_231Pa,nochem_mixPa_233231_avg]},index=[0,1,2])
+else:
+    avg_233Pa_231Pa_df = pd.DataFrame({'avg_233Pa_231Pa for Marty':[decay_days,avg_233Pa_231Pa]},index=[0,1])
 export_df = pd.concat([sample_name_df,export_data_df,avg_233Pa_231Pa_df],axis=1)
 #%% save to csv
 output_file_name = asksaveasfilename(title='Save the output file as')
