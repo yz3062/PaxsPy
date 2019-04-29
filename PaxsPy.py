@@ -11,6 +11,7 @@ from Tkinter import Tk
 from tkFileDialog import askopenfilenames, asksaveasfilename
 import sys
 import pandas as pd
+import matplotlib.pyplot as plt
 
 spike_answer = str(raw_input("Are you using 2006-2 UTh spike and 2017-1a Pa spike? If not, click no and search \'MixedPa' in script and change its values. [y] or n:") or 'y')
 if spike_answer == 'n':
@@ -47,26 +48,29 @@ def return_five_point_avg(file_name):
     # get rid of first column (mass) and last column (nan)
     txt_handle = txt_handle[:,1:-1]
     # If not blank, check and remove outliers
-    if 'Blank' not in file_name and 'blank' not in file_name:
-        txt_handle = reject_outliers(txt_handle)
+#    if 'Blank' not in file_name and 'blank' not in file_name:
+    txt_handle = reject_outliers(txt_handle)
     # average accros five points
     five_point_avg = ma.mean(txt_handle.reshape(len(txt_handle)/5, 5, -1),axis=1)
     # A second check for outliers after the five point average, except when the file is Blank
-    if 'Blank' not in file_name and 'blank' not in file_name:
-        print file_name + " # outliers: " + str(ma.count_masked(five_point_avg))
-        return reject_outliers(five_point_avg)
-    else:
-        return five_point_avg
+#    if 'Blank' not in file_name and 'blank' not in file_name:
+#        print file_name + " # outliers: " + str(ma.count_masked(five_point_avg))
+#        return reject_outliers(five_point_avg)
+#    else:
+#        return five_point_avg
+    five_point_avg_2nd_outlier_search = reject_outliers(five_point_avg)
+    print file_name + " # outliers: " + str(ma.count_masked(five_point_avg_2nd_outlier_search))
+    return five_point_avg_2nd_outlier_search
 
 def reject_outliers(data, m = 2.):
     # from https://stackoverflow.com/questions/11686720/is-there-a-numpy-builtin-to-reject-outliers-from-a-list
-#    # median approach
-#    d = np.abs(data - np.median(data, axis=1)[:,None])
-#    mdev = np.median(d,axis=1)
-#    s = d/mdev[:,None]# if mdev!=0 else 0.
-    # avg approach
-    d = np.abs(data - np.mean(data,axis=1)[:,None])
-    s = d/np.mean(data,axis=1)[:,None]
+    # median approach
+    d = ma.abs(data - ma.median(data, axis=1)[:,None])
+    mdev = ma.median(d,axis=1)
+    s = d/mdev[:,None]# if mdev!=0 else 0.
+#    # avg approach
+#    d = np.abs(data - np.mean(data,axis=1)[:,None])
+#    s = d/np.mean(data,axis=1)[:,None]
     return ma.array(data,mask=np.greater(s,m))
 
 #%% process blanks and stds. Calculate tailcrxn slope and intercept
@@ -82,7 +86,7 @@ blank_Th_tailCrxn = [[],[],[]]
 
 for file_name in names:
     five_point_avg = return_five_point_avg(file_name)
-    two_hundred_run_avg = np.mean(five_point_avg, axis=1)
+    two_hundred_run_avg = ma.mean(five_point_avg, axis=1)
     if 'Blank' in file_name or 'blank' in file_name:
         blank_Th_tailCrxn[0].append(two_hundred_run_avg[0]) # Th231
         blank_Th_tailCrxn[1].append(two_hundred_run_avg[1]) # Th232
@@ -118,11 +122,11 @@ SRM_238235_RSD = []
 for file_name in names:
     five_point_avg = return_five_point_avg(file_name)
     
-    two_hundred_run_238235_avg = np.mean(five_point_avg[2
+    two_hundred_run_238235_avg = ma.mean(five_point_avg[2
                                                     ,:]/five_point_avg[1,:])
     SRM_238235_avg.append(two_hundred_run_238235_avg)
-    two_hundred_run_238235_std = np.std(five_point_avg[2
-                                                   ,:]/five_point_avg[1,:])/np.sqrt(five_point_avg.shape[1])
+    two_hundred_run_238235_std = ma.std(five_point_avg[2
+                                                   ,:]/five_point_avg[1,:])/ma.sqrt(five_point_avg.shape[1])
     SRM_238235_std.append(two_hundred_run_238235_std)
     two_hundred_run_238235_RSD = two_hundred_run_238235_std/two_hundred_run_238235_avg
     SRM_238235_RSD.append(two_hundred_run_238235_RSD)
@@ -144,11 +148,11 @@ for file_name in names:
     five_point_avg[0,:] -= slopes_tailCrxn[0] * five_point_avg[1,:] + intercepts_tailCrxn[0]
     five_point_avg[2,:] -= slopes_tailCrxn[1] * five_point_avg[1,:] + intercepts_tailCrxn[1]
     
-    two_hundred_run_233231_avg = np.mean(five_point_avg[2
+    two_hundred_run_233231_avg = ma.mean(five_point_avg[2
                                                     ,:]/five_point_avg[0,:])
     MixPa_233231_avg.append(two_hundred_run_233231_avg)
-    two_hundred_run_233231_std = np.std(five_point_avg[2
-                                                   ,:]/five_point_avg[0,:])/np.sqrt(five_point_avg.shape[1])
+    two_hundred_run_233231_std = ma.std(five_point_avg[2
+                                                   ,:]/five_point_avg[0,:])/ma.sqrt(five_point_avg.shape[1])
     MixPa_233231_std.append(two_hundred_run_233231_std)
     two_hundred_run_233231_RSD = two_hundred_run_233231_std/two_hundred_run_233231_avg
     MixPa_233231_RSD.append(two_hundred_run_233231_RSD)
@@ -171,10 +175,10 @@ if nochem_mixPa_flag:
     five_point_avg[0,:] -= slopes_tailCrxn[0] * five_point_avg[1,:] + intercepts_tailCrxn[0]
     five_point_avg[2,:] -= slopes_tailCrxn[1] * five_point_avg[1,:] + intercepts_tailCrxn[1]
     
-    nochem_mixPa_233231_avg = np.mean(five_point_avg[2
+    nochem_mixPa_233231_avg = ma.mean(five_point_avg[2
                                                     ,:]/five_point_avg[0,:])
-    nochem_mixPa_233231_std = np.std(five_point_avg[2
-                                                   ,:]/five_point_avg[0,:])/np.sqrt(five_point_avg.shape[1])
+    nochem_mixPa_233231_std = ma.std(five_point_avg[2
+                                                   ,:]/five_point_avg[0,:])/ma.sqrt(five_point_avg.shape[1])
     nochem_mixPa_233231_RSD = two_hundred_run_233231_std/two_hundred_run_233231_avg
 
 #%% sample results
@@ -198,9 +202,9 @@ for i, file_name in enumerate(names):
     five_point_avg[0,:] -= slopes_tailCrxn[0] * five_point_avg[1,:] + intercepts_tailCrxn[0]
     five_point_avg[2,:] -= slopes_tailCrxn[1] * five_point_avg[1,:] + intercepts_tailCrxn[1]
     
-    master[i,0] = np.mean(five_point_avg[0,:]/five_point_avg[2,:])
-    two_hundred_run_231233_std = np.std(five_point_avg[0
-                                                   ,:]/five_point_avg[2,:])/np.sqrt(five_point_avg.shape[1])
+    master[i,0] = ma.mean(five_point_avg[0,:]/five_point_avg[2,:])
+    two_hundred_run_231233_std = ma.std(five_point_avg[0
+                                                   ,:]/five_point_avg[2,:])/ma.sqrt(five_point_avg.shape[1])
     master[i,1] = two_hundred_run_231233_std/master[i,0]
     
 #%% ez reduction
@@ -229,16 +233,16 @@ else:
 
 ## MixSpikeMassBias
 # mass bias
-SRM = np.mean(SRM_238235_avg)
-SRM_RSD = np.sqrt((np.sum((np.array(SRM_238235_avg) * np.array(SRM_238235_RSD))**2)))/3/SRM
+SRM = ma.mean(SRM_238235_avg)
+SRM_RSD = ma.sqrt((ma.sum((ma.array(SRM_238235_avg) * ma.array(SRM_238235_RSD))**2)))/3/SRM
 accepted_238235 = 137.55
 accepted_238235_RSD = 0.50*0.01
 mass_bias_per_amu = (SRM/accepted_238235-1)/3
-mass_bias_per_amu_RSD = np.sqrt((SRM_RSD**2+accepted_238235_RSD**2))
+mass_bias_per_amu_RSD = ma.sqrt((SRM_RSD**2+accepted_238235_RSD**2))
 
 # MixedPa
-avg_233Pa_231Pa = np.mean(MixPa_233231_avg)
-avg_233Pa_231Pa_RSD = np.sqrt(np.sum((np.array(MixPa_233231_avg) * np.array(MixPa_233231_RSD))**2))/3/avg_233Pa_231Pa
+avg_233Pa_231Pa = ma.mean(MixPa_233231_avg)
+avg_233Pa_231Pa_RSD = ma.sqrt(ma.sum((ma.array(MixPa_233231_avg) * ma.array(MixPa_233231_RSD))**2))/3/avg_233Pa_231Pa
 Pa231_cncn_pg_g = 38
 Pa231_soln_mass_in_spike_g = 0.2088
 Pa233_soln_mass_in_spike_g = 5.3203
@@ -251,13 +255,13 @@ decay_days = int(input('Enter the number of days from Pa233 spike preparation to
 #%%
 ##UnSpike
 Pa231_Pa233_mass_bias_crtd = (1+(-2*mass_bias_per_amu))*master[:,0]
-Pa231_Pa233_mass_bias_crtd_RSD = np.sqrt(master[:,1]**2+(2*mass_bias_per_amu_RSD)**2)
+Pa231_Pa233_mass_bias_crtd_RSD = ma.sqrt(master[:,1]**2+(2*mass_bias_per_amu_RSD)**2)
 if sample_info_type == 'txt':
     Pa233_pg = Pa233_mass_in_spike_pg_g * (sample_info['f4']/1000)
 elif sample_info_type == 'xlsx':
     Pa233_pg = Pa233_mass_in_spike_pg_g * (sample_info[4]/1000)
 Pa231_pg = Pa233_pg * Pa231_Pa233_mass_bias_crtd * 231 / 233
-Pa231_pg_RSD = np.sqrt(Pa231_Pa233_mass_bias_crtd_RSD**2 + avg_233Pa_231Pa_RSD**2)
+Pa231_pg_RSD = ma.sqrt(Pa231_Pa233_mass_bias_crtd_RSD**2 + avg_233Pa_231Pa_RSD**2)
 if sample_info_type == 'txt':
     if not (sample_info['f0']=='BLANK').any():
         raise RuntimeError('Cannot determine from sample name in sample info which sample is blank. Name it BLANK')
