@@ -11,9 +11,11 @@ from Tkinter import Tk
 from tkFileDialog import askopenfilenames, asksaveasfilename
 import sys
 import pandas as pd
+import matplotlib
+matplotlib.use("TkAgg")
 import matplotlib.pyplot as plt
 
-spike_answer = str(raw_input("Are you using 2006-2 UTh spike and 2017-1a Pa spike? If not, click no and search \'MixedPa' in script and change its values. [y] or n:") or 'y')
+spike_answer = str(raw_input("Are you using 2006-2 UTh spike and 2019-1b Pa spike? If not, click no and search \'MixedPa' in script and change its values. [y] or n:") or 'y')
 if spike_answer == 'n':
     sys.exit()
 figure_answer = str(raw_input("Do you want to inspect ICPMS raw output in figures?[y] or n:") or 'y')
@@ -43,8 +45,9 @@ def return_five_point_avg(file_name):
         txt_handle_r = np.transpose(txt_handle)
         data_df = pd.DataFrame(data=txt_handle_r[1:-1,:])
         data_df.plot(sharex=True,title=file_name)
-        plt.ion()
-        plt.show()
+        #plt.ion()
+        #plt.show()
+        plt.savefig(file_name+'.png')
     # get rid of first column (mass) and last column (nan)
     txt_handle = txt_handle[:,1:-1]
     # If not blank, check and remove outliers
@@ -244,8 +247,8 @@ mass_bias_per_amu_RSD = ma.sqrt((SRM_RSD**2+accepted_238235_RSD**2))
 avg_233Pa_231Pa = ma.mean(MixPa_233231_avg)
 avg_233Pa_231Pa_RSD = ma.sqrt(ma.sum((ma.array(MixPa_233231_avg) * ma.array(MixPa_233231_RSD))**2))/3/avg_233Pa_231Pa
 Pa231_cncn_pg_g = 38
-Pa231_soln_mass_in_spike_g = 0.2088
-Pa233_soln_mass_in_spike_g = 5.3203
+Pa231_soln_mass_in_spike_g = 0.1054
+Pa233_soln_mass_in_spike_g = 12.7247
 Pa233_mass_in_spike_pg_g = avg_233Pa_231Pa*Pa231_cncn_pg_g*Pa231_soln_mass_in_spike_g/Pa233_soln_mass_in_spike_g
 decay_days = int(input('Enter the number of days from Pa233 spike preparation to Pa clean up column: '))
 

@@ -27,9 +27,13 @@ python PaxsPy.py
 ```
 You'll be prompted to confirm the version of Pa and Th spikes you're using
 
-![alt text](/README_screenshots/Spike_prompt_PaxsPy.JPG)
+![alt text](/README_screenshots/Spike_prompt_PaxsPy.png)
 
-Click "Yes", and you'll then be prompted to select data files as well as a sample info file
+Hit "Enter", and you'll be asked whether you want to inspect the data in figures
+
+![alt text](/README_screenshots/inspect_figures_prompt.png)
+
+Hit "Enter". Figures of all the ICPMS counts will be saved in the same folder as the input files. You can check the figures to see if there's anything abnormal, e.g. a spike in counts or trailing in counts midway. Notice that the all isotopes are plotted on the same y-axis, meaning you'll mostly see the variations in major isotopes like 238U and 232Th. You'll then select data files as well as a sample info file. Notice that the file selector window sometimes doesn't pop up and is open in the background.
 
 ![alt text](/README_screenshots/data_selection_PaxsPy.JPG)
 
