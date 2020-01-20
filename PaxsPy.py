@@ -15,7 +15,7 @@ import matplotlib
 matplotlib.use("TkAgg")
 import matplotlib.pyplot as plt
 
-spike_answer = str(raw_input("Are you using 2006-2 UTh spike and 2019-1b Pa spike? If not, click no and search \'MixedPa' in script and change its values. [y] or n:") or 'y')
+spike_answer = str(raw_input("Are you using 2006-2 UTh spike and 2019-2a Pa spike? If not, click no and search \'MixedPa' in script and change its values. [y] or n:") or 'y')
 if spike_answer == 'n':
     sys.exit()
 figure_answer = str(raw_input("Do you want to inspect ICPMS raw output in figures?[y] or n:") or 'y')
@@ -34,47 +34,41 @@ Tk().withdraw() # we don't want a full GUI, so keep the root window from appeari
 file_names = askopenfilenames(title="Select all the ICPMS output files and a \'sample_info' excel file") # show an "Open" dialog box and return the path to the selected file
 
 def return_five_point_avg(file_name):
-    # start reading from row 12, which are name/unit/blank
-#    txt_handle = np.genfromtxt(file_name, delimiter='\t', skip_header=12)
-    txt_handle = np.genfromtxt(file_name, delimiter='\t')
-    if np.all(np.isnan(txt_handle[0])):# if first line is empty
-        txt_handle = txt_handle[12:]
-    else:
-        txt_handle = txt_handle[7:]
+def return_five_point_avg(file_name):
+    # read txt as csv, using tab as separator
+    txt_handle = pd.read_csv(file_name,sep='\t',header=None)
+    txt_handle.dropna(how='all',axis='index',inplace=True) # drop the rows where all elements are missing
+    txt_handle.dropna(how='all',axis='columns',inplace=True) # drop the columns where all elements are missing
+    txt_handle.reset_index(drop=True,inplace=True) # index at this point doesn't start with 0,1,2 etc because some rows were deleted. This will reset index, and drop=True will prevent a new column named "index" be created
+    txt_handle.drop([0,1,2],inplace=True) # remove the first three rows 
+    txt_handle.reset_index(drop=True,inplace=True)
+    txt_handle = txt_handle.astype(float)
     if figure_answer == 'y':
-        txt_handle_r = np.transpose(txt_handle)
-        data_df = pd.DataFrame(data=txt_handle_r[1:-1,:])
-        data_df.plot(sharex=True,title=file_name)
-        #plt.ion()
-        #plt.show()
+        txt_handle_r = txt_handle.transpose() # create a transposed version
+        txt_handle_r.columns = txt_handle_r.iloc[0] # name the columns with the first row (mass)
+        txt_handle_r.drop(txt_handle_r.index[0],inplace=True) # drop the first row (mass)
+        txt_handle_r.plot(sharex=True,title=file_name)
         plt.savefig(file_name+'.png')
-    # get rid of first column (mass) and last column (nan)
-    txt_handle = txt_handle[:,1:-1]
-    # If not blank, check and remove outliers
-#    if 'Blank' not in file_name and 'blank' not in file_name:
+    txt_handle.set_index(txt_handle[0],inplace=True) # set index as mass
+    txt_handle.drop(columns=[0],inplace=True) # drop the mass column
     txt_handle = reject_outliers(txt_handle)
-    # average accros five points
-    five_point_avg = ma.mean(txt_handle.reshape(len(txt_handle)/5, 5, -1),axis=1)
-    # A second check for outliers after the five point average, except when the file is Blank
-#    if 'Blank' not in file_name and 'blank' not in file_name:
-#        print file_name + " # outliers: " + str(ma.count_masked(five_point_avg))
-#        return reject_outliers(five_point_avg)
-#    else:
-#        return five_point_avg
-    five_point_avg_2nd_outlier_search = reject_outliers(five_point_avg)
-    print file_name + " # outliers: " + str(ma.count_masked(five_point_avg_2nd_outlier_search))
-    return five_point_avg_2nd_outlier_search
-
+    # average accros multiple masses of the same element
+    txt_handle.set_index(np.floor(txt_handle.index),inplace=True)
+    five_point_avg = txt_handle.groupby(txt_handle.index).mean()
+    five_point_avg_2nd_outlier_detection = reject_outliers(five_point_avg)
+    masekd_array = ma.masked_invalid(five_point_avg_2nd_outlier_detection.values)
+    print(file_name + ' # outliers: ' + str(np.count_nonzero(~np.isnan(masekd_array))))
+    return masekd_array
+    
 def reject_outliers(data, m = 2.):
-    # from https://stackoverflow.com/questions/11686720/is-there-a-numpy-builtin-to-reject-outliers-from-a-list
-    # median approach
-    d = ma.abs(data - ma.median(data, axis=1)[:,None])
-    mdev = ma.median(d,axis=1)
-    s = d/mdev[:,None]# if mdev!=0 else 0.
-#    # avg approach
-#    d = np.abs(data - np.mean(data,axis=1)[:,None])
-#    s = d/np.mean(data,axis=1)[:,None]
-    return ma.array(data,mask=np.greater(s,m))
+    '''
+    from https://stackoverflow.com/questions/11686720/is-there-a-numpy-builtin-to-reject-outliers-from-a-list
+    data is expected to be a pandas dataframe, where each row is a number of measurements on the same mass
+    '''
+    d = data.subtract(data.median(axis=1),axis='index').abs()
+    mdev = d.median(axis=1)
+    s = d.divide(mdev,axis='index')
+    return data.mask(s>m)
 
 #%% process blanks and stds. Calculate tailcrxn slope and intercept
 names = [name for name in file_names if 'Blank' in name or 'blank' in name or
@@ -247,8 +241,8 @@ mass_bias_per_amu_RSD = ma.sqrt((SRM_RSD**2+accepted_238235_RSD**2))
 avg_233Pa_231Pa = ma.mean(MixPa_233231_avg)
 avg_233Pa_231Pa_RSD = ma.sqrt(ma.sum((ma.array(MixPa_233231_avg) * ma.array(MixPa_233231_RSD))**2))/3/avg_233Pa_231Pa
 Pa231_cncn_pg_g = 38
-Pa231_soln_mass_in_spike_g = 0.1054
-Pa233_soln_mass_in_spike_g = 12.7247
+Pa231_soln_mass_in_spike_g = 0.2103
+Pa233_soln_mass_in_spike_g = 26.6125
 Pa233_mass_in_spike_pg_g = avg_233Pa_231Pa*Pa231_cncn_pg_g*Pa231_soln_mass_in_spike_g/Pa233_soln_mass_in_spike_g
 decay_days = int(input('Enter the number of days from Pa233 spike preparation to Pa clean up column: '))
 
@@ -302,7 +296,8 @@ if nochem_mixPa_flag:
 else:
     avg_233Pa_231Pa_df = pd.DataFrame({'avg_233Pa_231Pa for Marty':[decay_days,avg_233Pa_231Pa]},index=[0,1])
 export_df = pd.concat([sample_name_df,export_data_df,avg_233Pa_231Pa_df],axis=1)
-#%% save to csv
+
+#%% save to excel
 output_file_name = asksaveasfilename(title='Save the output file as')
 if 'xlsx' not in output_file_name:
     output_file_name = output_file_name + '.xlsx'
