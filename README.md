@@ -7,7 +7,7 @@ This software calculates protactinium excess, a proxy for ocean sediments usuall
 
 If you're new to python, I recommend you simply download [Anaconda](https://www.anaconda.com/download/), which includes all the prerequisites. Alternatively, download the followings individually:
 
-Python 2
+Python 3 (the newest version of this program ended support for Python 2, since it has reached its end of life)
 
 [scipy](https://www.scipy.org/)
 
