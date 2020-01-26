@@ -14,6 +14,7 @@ import pandas as pd
 import matplotlib
 matplotlib.use("TkAgg")
 import matplotlib.pyplot as plt
+import pprint
 
 spike_answer = str(input("Are you using 2006-2 UTh spike and 2019-2a Pa spike? If not, click no and search \'MixedPa' in script and change its values. [y] or n:") or 'y')
 if spike_answer == 'n':
@@ -61,11 +62,12 @@ def reject_outliers(data, m = 2.):
     return data.mask(s>m)
 
 #%% process blanks and stds. Calculate tailcrxn slope and intercept
-names = [name for name in file_names if 'Blank' in name or 'blank' in name or
-     'Th_std' in name]
+names = [name for name in file_names if ('Blank' in name or 'blank' in name or 'BLANK' in name or 'Th_std' in name) and 'SRM' not in name]
 if not names:
     raise RuntimeError('No blank or std files found!')
-
+print("Identified the following files as either blank or Th_std:")
+pprint.pprint(names)
+print('\n')
 # set up lists for tail corrections
 # the three lists are for 231, 232, 233
 Th_std_tailCrxn = [[],[],[]]
@@ -96,33 +98,66 @@ slopes_tailCrxn[0], intercepts_tailCrxn[0], correlations_tailCrxn[0] = stats.lin
 Th233_TailCrxn = np.concatenate((Th_std_tailCrxn[2], blank_Th_tailCrxn[2]))
 slopes_tailCrxn[1], intercepts_tailCrxn[1], correlations_tailCrxn[1] = stats.linregress(Th232_TailCrxn, Th233_TailCrxn)[:3]
 
+#%% SRM blank
+names = [name for name in file_names if ('SRM' in name and 'blank' in name) or ('SRM' in name and 'BLANK' in name) or ('SRM' in name and 'Blank' in name)]
+if not names:
+    SRM_blank_flag = False
+else:
+    SRM_blank_flag = True
+    print("Identified the following files as SRM blanks:")
+    pprint.pprint(names)
+    print('\n')
+# set up lists to store the 3 SRM_a
+SRM_238_blank_avg = []
+SRM_235_blank_avg = []
+
+for file_name in names:
+    five_point_avg = return_five_point_avg(file_name)
+    
+    two_hundred_run_238_avg = ma.mean(five_point_avg[2,:])
+    two_hundred_run_235_avg = ma.mean(five_point_avg[1,:])
+    SRM_238_blank_avg.append(two_hundred_run_238_avg)
+    SRM_235_blank_avg.append(two_hundred_run_235_avg)
+
 #%% SRM
-names = [name for name in file_names if 'SRM' in name]
+names = [name for name in file_names if 'SRM' in name and 'blank' not in name and 'Blank' not in name and 'BLANK' not in name]
 if not names:
     raise RuntimeError('No SRM files found!')
-
+print("Identified the following files as SRM:")
+pprint.pprint(names)
+print('\n')
 # set up lists to store the 3 SRM_a
-SRM_238235_avg = []
+SRM_238_avg = []
+SRM_235_avg = []
 SRM_238235_std = []
 SRM_238235_RSD = []
 
 for file_name in names:
     five_point_avg = return_five_point_avg(file_name)
     
+    two_hundred_run_238_avg = ma.mean(five_point_avg[2,:])
+    two_hundred_run_235_avg = ma.mean(five_point_avg[1,:])
+    SRM_238_avg.append(two_hundred_run_238_avg)
+    SRM_235_avg.append(two_hundred_run_235_avg)
     two_hundred_run_238235_avg = ma.mean(five_point_avg[2
                                                     ,:]/five_point_avg[1,:])
-    SRM_238235_avg.append(two_hundred_run_238235_avg)
     two_hundred_run_238235_std = ma.std(five_point_avg[2
                                                    ,:]/five_point_avg[1,:])/ma.sqrt(five_point_avg.shape[1])
     SRM_238235_std.append(two_hundred_run_238235_std)
     two_hundred_run_238235_RSD = two_hundred_run_238235_std/two_hundred_run_238235_avg
     SRM_238235_RSD.append(two_hundred_run_238235_RSD)
     
+if SRM_blank_flag:
+    SRM_238235_avg = (SRM_238_avg - ma.mean(SRM_238_blank_avg)) / (SRM_235_avg - ma.mean(SRM_235_blank_avg))
+else:
+    SRM_238235_avg = ma.array(SRM_238_avg) / ma.array(SRM_235_avg)
 #%% MixPa
 names = [name for name in file_names if 'zmix' in name]
 if not names:
     raise RuntimeError('No zmix files found!')
-
+print("Identified the following files as zmix:")
+pprint.pprint(names)
+print('\n')
 # set up lists to store the 3 MixPa
 MixPa_233231_avg = []
 MixPa_233231_std = []
@@ -153,6 +188,9 @@ if not names:
     nochem_mixPa_flag = False
 else:
     nochem_mixPa_flag = True
+    print("Identified the following files as no chem mixPa:")
+    pprint.pprint(names)
+    print('\n')
     
 if nochem_mixPa_flag:
     file_name = names[0]
@@ -171,11 +209,13 @@ if nochem_mixPa_flag:
 #%% sample results
 
 # if this is UTh data file
-names = [name for name in file_names if '_Pa.txt' in name]
+names = [name for name in file_names if '_Pa.txt' in name or '_Pa_re.txt' in name]
 if not names:
     raise RuntimeError('No Pa files found!')
 names.sort()
-
+print("Identified the following files as sample files:")
+pprint.pprint(names)
+print('\n')
 # set up the 2d array as in master spreadsheet
 # Columns: 231/233_avg	231/233_RSD
 # Rows: Pa1-num_samples
