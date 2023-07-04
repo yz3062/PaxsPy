@@ -16,7 +16,7 @@ matplotlib.use("TkAgg")
 import matplotlib.pyplot as plt
 import pprint
 
-spike_answer = str(input("Are you using 2006-2 UTh spike and 2019-2a Pa spike? If not, click no and search \'MixedPa' in script and change its values. [y] or n:") or 'y')
+spike_answer = str(input("Are you using 2006-2 UTh spike and 2022-1a Pa spike? If not, click no and search \'MixedPa' in script and change its values. [y] or n:") or 'y')
 if spike_answer == 'n':
     sys.exit()
 figure_answer = str(input("Do you want to inspect ICPMS raw output in figures?[y] or n:") or 'y')
@@ -271,8 +271,8 @@ mass_bias_per_amu_RSD = ma.sqrt((SRM_RSD**2+accepted_238235_RSD**2))
 avg_233Pa_231Pa = ma.mean(MixPa_233231_avg)
 avg_233Pa_231Pa_RSD = ma.sqrt(ma.sum((ma.array(MixPa_233231_avg) * ma.array(MixPa_233231_RSD))**2))/3/avg_233Pa_231Pa
 Pa231_cncn_pg_g = 38
-Pa231_soln_mass_in_spike_g = 0.2103
-Pa233_soln_mass_in_spike_g = 26.6125
+Pa231_soln_mass_in_spike_g = 0.1924
+Pa233_soln_mass_in_spike_g = 26.5163
 Pa233_mass_in_spike_pg_g = avg_233Pa_231Pa*Pa231_cncn_pg_g*Pa231_soln_mass_in_spike_g/Pa233_soln_mass_in_spike_g
 decay_days = int(input('Enter the number of days from Pa233 spike preparation to Pa clean up column: '))
 
